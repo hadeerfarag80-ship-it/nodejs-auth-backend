@@ -1,34 +1,31 @@
 const express = require("express");
 const router = express.Router();
-const Joi = require("joi"); 
-
-const books = [
-    { id: 1, auther: "nasam taleb", title: "black swan" },
-    { id: 2, auther: "nasam taleb", title: "black swan" },
-];
-
+const Joi = require("joi");
+const asynchandler = require("express-async-handler");
+const {book ,validateCreatBooks,validateUpdateBooks} = require("../models/Book");
+const { verifyTokenAdmin } = require("../middlewares/verifyToken");
 // Middleware
 router.use(express.json());
 
 // GET all books
-router.get("/", (req, res) => {
-    res.json(books);
-});
+router.get("/",asynchandler(async(req,res)=> {
+const books = await book.find()//.populate("author", ["-id", "firstName", "lastName"]);
+res.status(200).json(books);
+}));
 
-// GET book by id no validation
-router.get("/:id", (req, res) => {
-    const book = books.find(b => b.id === parseInt(req.params.id));
-    if (book) {
-        res.status(200).json(book);
+router.get("/:id", asynchandler(async (req, res) => {
+    const Book = await book
+        .findById(req.params.id)
+        .populate("author", ["firstName", "lastName", "-_id"]);
+
+    if (Book) {
+        res.status(200).json(Book);
     } else {
         res.status(404).json({ message: "book not found" });
     }
-});
-
+}));
 // POST add new book with validation
-router.post("/", (req, res) => {
-
-
+router.post("/",verifyTokenAdmin, asynchandler(async(req, res) => {
     const { error } = validateCreatBooks(req.body);
 
     if (error) {
@@ -37,74 +34,57 @@ router.post("/", (req, res) => {
         });
     }
 
-    const book = {
-        id: books.length + 1,
+    const bookNew = new book({
         title: req.body.title,
-        auther: req.body.auther
-    };
+        author: req.body.author,
+        description: req.body.description,
+        price: req.body.price,
+        cover: req.body.cover
+    });
 
-    books.push(book);
-    res.status(201).json(book);
-});
-
-//// validation post
-function validateCreatBooks(obj){
- const schema = Joi.object({
-
- title:Joi.string().trim().min(3).max(200).required(),
- auther:Joi.string().trim().min(3).max(200).required(),
-
- });
-return schema.validate(obj);
+    const result = await bookNew.save();
+    res.status(201).json(result);
+}));
 
 
-
-}
 
 /////////////////////////////////////////////////put
-router.put("/:id", (req, res) => {
-
-
+router.put("/:id",verifyTokenAdmin, asynchandler(async(req, res) => {
     const { error } = validateUpdateBooks(req.body);
      if (error) {
         return res.status(400).json({
             message: error.details[0].message
         });
     }
-    const book = books.find(b => b.id === parseInt(req.params.id));
-    if (book) {
-        res.status(200).json({message:"book has been update"});
-    } else {
-        res.status(404).json({ message: "book not found" });
-    }
+    const updateBook = await book.findByIdAndUpdate(req.params.id, {
+        $set: {
+            title: req.body.title,
+            author: req.body.author,
+            description: req.body.description,
+            price: req.body.price,
+            cover: req.body.cover
+        }
+    }, { new: true });
+    res.status(200).json(updateBook);
 
 
-});
-////validation put
- function validateUpdateBooks(obj){
- const schema = Joi.object({
-
-    title:Joi.string().trim().min(3).max(200),
-    auther:Joi.string().trim().min(3).max(200),
-
- });
- return schema.validate(obj);
- }
+}));
 ///////////////////////////////////////////////////////////////////////////////delete no validation
 
-router.delete("/:id", (req, res) => {
+router.delete("/:id",verifyTokenAdmin,asynchandler(async(req, res) => {
 
 
    
     
-    const book = books.find(b => b.id === parseInt(req.params.id));
-    if (book) {
+    const bookToDelete = await book.findById(req.params.id);
+    if (bookToDelete) {
+        await book.findByIdAndDelete(req.params.id);
         res.status(200).json({message:"book has been deleted"});
     } else {
         res.status(404).json({ message: "book not found" });
     }
 
 
-});
+}));
 
 module.exports = router;

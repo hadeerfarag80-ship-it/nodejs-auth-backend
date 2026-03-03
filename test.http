@@ -1,0 +1,7 @@
+put http://localhost:5000/api/users/699f39c56fe301ca22db156b
+Content-Type: application/json
+
+{
+   
+    "username" : "hadeer"
+}

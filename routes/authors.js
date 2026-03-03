@@ -1,38 +1,31 @@
-const express = require("express");
+
+ const express = require("express");
 const router = express.Router();
 const Joi = require("joi");
-const authors = [
-{
-    id : 1,
-    firstname:"hadeer",
-    lastname:"farag",
-
-}
-]
-
-
+const asynchandler = require("express-async-handler");
+const { Author, validateCreatauthours, validateUpdateBooks } = require("../models/Author");
+const { verifyTokenAdmin } = require("../middlewares/verifyToken");
 // Middleware
 router.use(express.json());
 
 // GET all books
-router.get("/", (req, res) => {
-    res.json(authors);
-});
-
+router.get("/" , asynchandler(async (req, res) => {
+    const authorlist = await Author.find()
+    res.json(authorlist);
+}));
 // GET author by id no validation
-router.get("/:id", (req, res) => {
-    const auther = authors.find(b => b.id === parseInt(req.params.id));
-    if (auther) {
-        res.status(200).json(auther);
-    } else {
-        res.status(404).json({ message: "authour not found" });
-    }
-});
+router.get("/:id", asynchandler(async (req, res) => {
+    const author = await Author.findById(req.params.id);
+        if (author) {
+            res.status(200).json(author);
+        } else {
+            res.status(404).json({ message: "author not found" });
+        }
+   
+}));
 
 // POST add new book with validation
-router.post("/", (req, res) => {
-
-
+router.post("/", verifyTokenAdmin, asynchandler(async (req, res) => {
     const { error } = validateCreatauthours(req.body);
 
     if (error) {
@@ -41,33 +34,20 @@ router.post("/", (req, res) => {
         });
     }
 
-    const auther = {
-        id: authors.length + 1,
-       firstname:req.body.firstname,
-        lastname:req.body.lastname,
+    const auther = new Author({
+        firstName:req.body.firstName,
+        lastName:req.body.lastName,
+        nationality:req.body.nationality,
+        Image:req.body.Image
+    });
 
-    };
-
-    authors.push(auther);
+    await auther.save();
     res.status(201).json(auther);
-});
+}));
 
-//// validation post
-function validateCreatauthours(obj){
- const schema = Joi.object({
-
- firstname:Joi.string().trim().min(3).max(200).required(),
- lastname:Joi.string().trim().min(3).max(200).required(),
-
- });
-return schema.validate(obj);
-
-
-
-}
 
 /////////////////////////////////////////////////put
-router.put("/:id", (req, res) => {
+router.put("/:id", verifyTokenAdmin, asynchandler(async (req, res) => {
 
 
     const { error } = validateUpdateBooks(req.body);
@@ -76,41 +56,29 @@ router.put("/:id", (req, res) => {
             message: error.details[0].message
         });
     }
-    const auther= authors.find(b => b.id === parseInt(req.params.id));
-    if (auther) {
-        res.status(200).json({message:"author has been update"});
-    } else {
-        res.status(404).json({ message: "author not found" });
-    }
+   const author = await Author.findByIdAndUpdate(req.params.id, {
+        $set: {
+        firstName:req.body.firstName,
+        lastName:req.body.lastName,
+        nationality:req.body.nationality,
+        Image:req.body.Image,
+        }
+    }, { new: true });
+    res.status(200).json(author);
+}));
 
-
-});
-////validation put
- function validateUpdateBooks(obj){
- const schema = Joi.object({
-
-    firstname:Joi.string().trim().min(3).max(200),
-    lastname:Joi.string().trim().min(3).max(200),
-
- });
- return schema.validate(obj);
- }
 ///////////////////////////////////////////////////////////////////////////////delete no validation
 
-router.delete("/:id", (req, res) => {
-
-
-   
+router.delete("/:id",verifyTokenAdmin, asynchandler(async (req, res) => {
     
-    const auther= authors.find(b => b.id === parseInt(req.params.id));
+    const auther= await Author.findByIdAndDelete(req.params.id);
     if (auther) {
         res.status(200).json({message:"author has been deleted"});
     } else {
         res.status(404).json({ message: "author not found" });
     }
-
-
-});
+   
+}));
 
 module.exports = router;
 
